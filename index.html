@@ -319,7 +319,7 @@
                 
                 // Sort by category to ensure a consistent order, then assign display IDs
                 expenses = fetchedExpenses
-                    .sort((a, b) => a.category.localeCompare(b.category))
+                    .sort((a, b) => a.order - b.order)
                     .map((expense, index) => ({
                         ...expense,
                         displayId: index + 1 // This is the visual ID for the table
@@ -470,3 +470,4 @@
     </script>
 </body>
 </html>
+
