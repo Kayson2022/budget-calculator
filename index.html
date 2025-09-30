@@ -6,9 +6,10 @@
     <title>Budget Calculator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script> <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <style>
-        /* Your existing styles are here */
+        /* All styles are preserved */
         * {
             margin: 0;
             padding: 0;
@@ -28,9 +29,9 @@
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             padding: 30px;
+            position: relative; /* Needed for logout button positioning */
         }
 
-        /* NEW: Styles for the Authentication Container */
         #auth-container {
             max-width: 400px;
             margin: 50px auto;
@@ -42,6 +43,7 @@
         #auth-container h1 {
             font-size: 2rem;
             margin-bottom: 20px;
+            text-align: center;
         }
         .auth-form-group {
             margin-bottom: 15px;
@@ -78,7 +80,6 @@
             text-align: center;
         }
 
-        /* NEW: Styles for the Logout Button */
         #logout-btn {
             position: absolute;
             top: 20px;
@@ -91,7 +92,6 @@
             cursor: pointer;
         }
         
-        /* Your other styles remain below */
         h1 {
             text-align: center;
             color: #1f2937;
@@ -105,11 +105,234 @@
             border-radius: 8px;
             margin-bottom: 30px;
         }
-        /* ... all of your other styles are preserved ... */
+        
+        .budget-section label {
+            display: block;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 10px;
+        }
+        
+        .budget-input, .months-input {
+            font-size: 1.8rem;
+            font-weight: bold;
+            padding: 12px;
+            border: 2px solid #93c5fd;
+            border-radius: 8px;
+            width: 200px;
+            margin-right: 20px;
+        }
+        
+        .budget-section .input-group {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .year-end-projection {
+            font-size: 1.2rem;
+            color: #374151;
+            margin-top: 10px;
+        }
+        
+        .year-end-amount {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        
+        .year-end-amount.positive {
+            color: #16a34a;
+        }
+        
+        .year-end-amount.negative {
+            color: #dc2626;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .expenses-section h2,
+        .chart-section h2 {
+            font-size: 1.8rem;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        th, td {
+            border: 1px solid #d1d5db;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+        
+        th:first-child, td:first-child {
+            width: 50px;
+            text-align: center;
+        }
+        
+        td:first-child {
+            font-weight: bold;
+            color: #6b7280;
+        }
+        
+        .amount-input {
+            width: 100px;
+            text-align: right;
+            padding: 5px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        .delete-btn:hover {
+            color: #b91c1c;
+        }
+        
+        .totals-section {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        
+        .totals-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .total-item h3 {
+            color: #374151;
+            margin-bottom: 5px;
+        }
+        
+        .total-amount {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .total-amount.expense {
+            color: #dc2626;
+        }
+        
+        .total-amount.positive {
+            color: #16a34a;
+        }
+        
+        .total-amount.negative {
+            color: #dc2626;
+        }
+        
+        .total-label {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+            margin-right: 8px;
+        }
+        
+        hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 20px 0;
+        }
+        
+        .add-expense-form {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .add-expense-form h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .form-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+        input[type="color"] {
+            height: 38px;
+        }
+        .form-button {
+            background-color: #2563eb;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 15px;
+        }
+        .form-button:hover {
+            background-color: #1d4ed8;
+        }
     </style>
 </head>
 <body>
-    
+
     <div id="auth-container">
         <h1 id="auth-title">Login</h1>
         <p id="error-message"></p>
@@ -141,7 +364,98 @@
     <div id="app-container" class="container" style="display: none;">
         <button id="logout-btn">Logout</button>
         <h1>Budget Calculator</h1>
+        
+        <div class="budget-section">
+            <div class="input-group">
+                <div>
+                    <label for="budget">Monthly Budget:</label>
+                    <input type="number" id="budget" class="budget-input" value="10000" onchange="updateCalculations()">
+                </div>
+                <div>
+                    <label for="months-to-year-end">Months to Year-End:</label>
+                    <input type="number" id="months-to-year-end" class="months-input" value="6" min="1" max="12" onchange="updateCalculations()">
+                </div>
+            </div>
+            <div class="year-end-projection">
+                Projected Year-End Amount: <span id="year-end-amount" class="year-end-amount">$0</span>
+            </div>
         </div>
+        
+        <div class="main-content">
+            <div class="expenses-section">
+                <h2>Expenses</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Category</th>
+                            <th style="text-align: right;">Monthly</th>
+                            <th style="text-align: right;">Annual</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenses-table"></tbody>
+                </table>
+                
+                <div class="add-expense-form">
+                    <h2>Add New Expense</h2>
+                    <form id="add-expense-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="new-category">Category Name</label>
+                                <input type="text" id="new-category" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-amount">Monthly Amount</label>
+                                <input type="number" id="new-amount" class="form-input" step="0.01" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-color">Color</label>
+                                <input type="color" id="new-color" class="form-input" value="#a3a3a3">
+                            </div>
+                        </div>
+                        <button type="submit" class="form-button">Save Expense</button>
+                    </form>
+                </div>
+
+                <div class="totals-section">
+                    <div class="totals-grid">
+                        <div class="total-item">
+                            <h3>Total Expenses</h3>
+                            <div class="total-amount expense" id="total-monthly">$0</div>
+                            <div class="total-label">Monthly</div>
+                        </div>
+                        <div class="total-item">
+                            <h3>Total Annual</h3>
+                            <div class="total-amount expense" id="total-annual">$0</div>
+                            <div class="total-label">Annual</div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="totals-grid">
+                        <div class="total-item">
+                            <h3>Remaining Buffer</h3>
+                            <div class="total-amount" id="remaining-monthly">$0</div>
+                            <div class="total-label">Monthly</div>
+                        </div>
+                        <div class="total-item">
+                            <h3>Remaining Annual</h3>
+                            <div class="total-amount" id="remaining-annual">$0</div>
+                            <div class="total-label">Annual</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-section">
+                <h2>Expense Breakdown</h2>
+                <div class="chart-container">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+                <div class="legend" id="chart-legend"></div>
+            </div>
+        </div>
+    </div>
 
     <script>
         const firebaseConfig = {
@@ -158,7 +472,6 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // NEW: Authentication Logic
         const authContainer = document.getElementById('auth-container');
         const appContainer = document.getElementById('app-container');
         const loginForm = document.getElementById('login-form');
@@ -168,7 +481,6 @@
         const errorMessage = document.getElementById('error-message');
         const logoutBtn = document.getElementById('logout-btn');
 
-        // Toggle between login and signup forms
         toggleAuth.addEventListener('click', () => {
             if (loginForm.style.display === 'none') {
                 loginForm.style.display = 'block';
@@ -181,58 +493,46 @@
                 authTitle.textContent = 'Sign Up';
                 toggleAuth.textContent = 'Have an account? Login';
             }
+            errorMessage.textContent = '';
         });
 
-        // Handle Sign Up
         signupForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
             auth.createUserWithEmailAndPassword(email, password)
-                .catch(error => {
-                    errorMessage.textContent = error.message;
-                });
+                .catch(error => { errorMessage.textContent = error.message; });
         });
 
-        // Handle Login
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
             auth.signInWithEmailAndPassword(email, password)
-                .catch(error => {
-                    errorMessage.textContent = error.message;
-                });
+                .catch(error => { errorMessage.textContent = error.message; });
         });
         
-        // Handle Logout
         logoutBtn.addEventListener('click', () => {
             auth.signOut();
         });
 
-        // Auth state listener
         auth.onAuthStateChanged(user => {
             errorMessage.textContent = '';
             if (user) {
-                // User is signed in
                 authContainer.style.display = 'none';
                 appContainer.style.display = 'block';
-                fetchExpenses(user.uid); // Pass user ID to fetch data
+                fetchExpenses(user.uid);
             } else {
-                // User is signed out
                 authContainer.style.display = 'block';
                 appContainer.style.display = 'none';
             }
         });
 
-        // Existing Budget Calculator Logic (with some modifications)
         let expenses = [];
         let chart = null;
 
-        // MODIFIED: fetchExpenses now needs a user ID
         async function fetchExpenses(userId) {
-            // NOTE: This will require a change to your database structure later.
-            // For now, it will still fetch from the public 'expenses' collection.
+            // Note: For true multi-user security, we will need to adjust this query later
             try {
                 const snapshot = await db.collection('expenses').get();
                 let fetchedExpenses = [];
@@ -246,15 +546,202 @@
                         ...expense,
                         displayId: index + 1
                     }));
-
                 updateCalculations();
             } catch (error) {
                 console.error("Error fetching expenses: ", error);
             }
         }
-        
-        // ... all of your other calculator functions (formatCurrency, updateExpense, etc.) are preserved here ...
 
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        }
+
+        function formatNumberInput(inputElement) {
+            let value = inputElement.value;
+            let number = value.replace(/[^0-9]/g, '');
+            if (number) {
+                const formattedValue = new Intl.NumberFormat('en-US').format(number);
+                inputElement.value = formattedValue;
+            } else {
+                inputElement.value = '';
+            }
+        }
+
+        function updateExpense(index, value) {
+            const docIdToUpdate = expenses[index].docId;
+            const newAmount = parseFloat(value.replace(/,/g, '')) || 0;
+            
+            db.collection('expenses').doc(docIdToUpdate).update({ amount: newAmount })
+                .then(() => {
+                    console.log("Document successfully updated!");
+                    expenses[index].amount = newAmount;
+                    updateCalculations();
+                })
+                .catch(error => {
+                    console.error("Error updating document: ", error);
+                });
+        }
+        
+        async function deleteExpense(docId) {
+            if (confirm('Are you sure you want to delete this expense?')) {
+                try {
+                    await db.collection('expenses').doc(docId).delete();
+                    console.log("Document successfully deleted!");
+                    await fetchExpenses();
+                } catch (error) {
+                    console.error("Error removing document: ", error);
+                }
+            }
+        }
+
+        async function handleAddNewExpense(event) {
+            event.preventDefault(); 
+
+            const category = document.getElementById('new-category').value;
+            const amount = parseFloat(document.getElementById('new-amount').value);
+            const color = document.getElementById('new-color').value;
+
+            if (!category || isNaN(amount)) {
+                alert('Please enter a valid category and amount.');
+                return;
+            }
+
+            const maxOrder = expenses.reduce((max, p) => p.order > max ? p.order : max, 0);
+            const newOrder = maxOrder + 1;
+
+            try {
+                await db.collection('expenses').add({
+                    category: category,
+                    amount: amount,
+                    color: color,
+                    order: newOrder
+                });
+                console.log("New expense added!");
+                document.getElementById('add-expense-form').reset();
+                await fetchExpenses();
+            } catch (error) {
+                console.error("Error adding document: ", error);
+            }
+        }
+
+        function updateCalculations() {
+            const budget = parseFloat(document.getElementById('budget').value) || 0;
+            const monthsToYearEnd = parseInt(document.getElementById('months-to-year-end').value) || 6;
+            const totalMonthly = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const totalAnnual = totalMonthly * 12;
+            const remainingMonthly = budget - totalMonthly;
+            const remainingAnnual = remainingMonthly * 12;
+            const yearEndProjection = remainingMonthly * monthsToYearEnd;
+
+            const tableBody = document.getElementById('expenses-table');
+            tableBody.innerHTML = '';
+            
+            expenses.forEach((expense, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${expense.displayId}</td>
+                    <td><strong>${expense.category}</strong></td>
+                    <td style="text-align: right;">
+                        <input type="text" inputmode="numeric" class="amount-input" 
+                               value="${new Intl.NumberFormat('en-US').format(expense.amount)}" 
+                               oninput="formatNumberInput(this)"
+                               onchange="updateExpense(${index}, this.value)">
+                    </td>
+                    <td style="text-align: right;">${formatCurrency(expense.amount * 12)}</td>
+                    <td style="text-align: center;">
+                        <button class="delete-btn" onclick="deleteExpense('${expense.docId}')">🗑️</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            document.getElementById('total-monthly').textContent = formatCurrency(totalMonthly);
+            document.getElementById('total-annual').textContent = formatCurrency(totalAnnual);
+            
+            const remainingMonthlyEl = document.getElementById('remaining-monthly');
+            const remainingAnnualEl = document.getElementById('remaining-annual');
+            const yearEndAmountEl = document.getElementById('year-end-amount');
+            
+            remainingMonthlyEl.textContent = formatCurrency(remainingMonthly);
+            remainingAnnualEl.textContent = formatCurrency(remainingAnnual);
+            yearEndAmountEl.textContent = formatCurrency(yearEndProjection);
+            
+            remainingMonthlyEl.className = `total-amount ${remainingMonthly >= 0 ? 'positive' : 'negative'}`;
+            remainingAnnualEl.className = `total-amount ${remainingAnnual >= 0 ? 'positive' : 'negative'}`;
+            yearEndAmountEl.className = `year-end-amount ${yearEndProjection >= 0 ? 'positive' : 'negative'}`;
+
+            updateChart(totalMonthly);
+        }
+
+        function updateChart(totalMonthly) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const sortedExpenses = [...expenses].sort((a, b) => b.amount - a.amount);
+            
+            const chartData = {
+                labels: sortedExpenses.map(expense => expense.category),
+                datasets: [{
+                    data: sortedExpenses.map(expense => expense.amount),
+                    backgroundColor: sortedExpenses.map(expense => expense.color),
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            };
+
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const amount = context.parsed.y;
+                                    const percentage = ((amount / totalMonthly) * 100).toFixed(1);
+                                    return [`Amount: ${formatCurrency(amount)}`, `Percentage: ${percentage}%`];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: value => formatCurrency(value) }
+                        },
+                        x: { ticks: { maxRotation: 45, minRotation: 45 } }
+                    }
+                }
+            });
+
+            updateLegend(sortedExpenses, totalMonthly);
+        }
+
+        function updateLegend(sortedExpenses, totalMonthly) {
+            const legend = document.getElementById('chart-legend');
+            legend.innerHTML = '';
+            
+            sortedExpenses.slice(0, 8).forEach(expense => {
+                const percentage = ((expense.amount / totalMonthly) * 100).toFixed(1);
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+                legendItem.innerHTML = `
+                    <div class="legend-color" style="background-color: ${expense.color}"></div>
+                    <span>${expense.category}: ${percentage}%</span>
+                `;
+                legend.appendChild(legendItem);
+            });
+        }
+        
+        document.getElementById('add-expense-form').addEventListener('submit', handleAddNewExpense);
     </script>
 </body>
 </html>
