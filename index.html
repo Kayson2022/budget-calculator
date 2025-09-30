@@ -8,7 +8,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <style>
-        /* Your original CSS is preserved exactly */
         * {
             margin: 0;
             padding: 0;
@@ -123,13 +122,12 @@
             font-weight: 600;
         }
         
-        th:first-child {
+        th:first-child, td:first-child {
             width: 50px;
             text-align: center;
         }
         
         td:first-child {
-            text-align: center;
             font-weight: bold;
             color: #6b7280;
         }
@@ -146,6 +144,7 @@
             background: #f9fafb;
             padding: 20px;
             border-radius: 8px;
+            margin-top: 30px;
         }
         
         .totals-grid {
@@ -211,6 +210,52 @@
             border-top: 1px solid #e5e7eb;
             margin: 20px 0;
         }
+        
+        /* NEW: Styles for the Add Expense Form */
+        .add-expense-form {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .add-expense-form h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .form-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+        input[type="color"] {
+            height: 38px;
+        }
+        .form-button {
+            background-color: #2563eb;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 15px;
+        }
+        .form-button:hover {
+            background-color: #1d4ed8;
+        }
     </style>
 </head>
 <body>
@@ -248,6 +293,27 @@
                     <tbody id="expenses-table"></tbody>
                 </table>
                 
+                <div class="add-expense-form">
+                    <h2>Add New Expense</h2>
+                    <form id="add-expense-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="new-category">Category Name</label>
+                                <input type="text" id="new-category" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-amount">Monthly Amount</label>
+                                <input type="number" id="new-amount" class="form-input" step="0.01" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-color">Color</label>
+                                <input type="color" id="new-color" class="form-input" value="#a3a3a3">
+                            </div>
+                        </div>
+                        <button type="submit" class="form-button">Save Expense</button>
+                    </form>
+                </div>
+
                 <div class="totals-section">
                     <div class="totals-grid">
                         <div class="total-item">
@@ -288,9 +354,7 @@
     </div>
 
     <script>
-        // PASTE YOUR FIREBASE CONFIG OBJECT HERE
-        const firebaseConfig = {
-            apiKey: "AIzaSyCQyt_NZRL2udbvzz6H5LBD2A_YE1ubSWo",
+        apiKey: "AIzaSyCQyt_NZRL2udbvzz6H5LBD2A_YE1ubSWo",
   authDomain: "my-budget-app-34e34.firebaseapp.com",
   projectId: "my-budget-app-34e34",
   storageBucket: "my-budget-app-34e34.firebasestorage.app",
@@ -299,36 +363,30 @@
 };
 
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // This array will be populated from Firebase
         let expenses = [];
         let chart = null;
 
-        // NEW: Function to fetch data from Firebase
         async function fetchExpenses() {
             try {
                 const snapshot = await db.collection('expenses').get();
                 let fetchedExpenses = [];
                 snapshot.forEach(doc => {
-                    // Store the Firestore document ID along with the data
                     fetchedExpenses.push({ docId: doc.id, ...doc.data() });
                 });
                 
-                // Sort by category to ensure a consistent order, then assign display IDs
                 expenses = fetchedExpenses
                     .sort((a, b) => a.order - b.order)
                     .map((expense, index) => ({
                         ...expense,
-                        displayId: index + 1 // This is the visual ID for the table
+                        displayId: index + 1
                     }));
 
                 updateCalculations();
             } catch (error) {
                 console.error("Error fetching expenses: ", error);
-                // Optionally, display an error message to the user
             }
         }
 
@@ -341,7 +399,6 @@
             }).format(amount);
         }
 
-        // MODIFIED: updateExpense now saves to Firebase
         function updateExpense(index, value) {
             const docIdToUpdate = expenses[index].docId;
             const newAmount = parseFloat(value) || 0;
@@ -349,13 +406,44 @@
             db.collection('expenses').doc(docIdToUpdate).update({ amount: newAmount })
                 .then(() => {
                     console.log("Document successfully updated!");
-                    // Update local array and recalculate everything
                     expenses[index].amount = newAmount;
                     updateCalculations();
                 })
                 .catch(error => {
                     console.error("Error updating document: ", error);
                 });
+        }
+        
+        // NEW: Function to handle adding a new expense
+        async function handleAddNewExpense(event) {
+            event.preventDefault(); // Stop page from reloading
+
+            const category = document.getElementById('new-category').value;
+            const amount = parseFloat(document.getElementById('new-amount').value);
+            const color = document.getElementById('new-color').value;
+
+            if (!category || isNaN(amount)) {
+                alert('Please enter a valid category and amount.');
+                return;
+            }
+
+            // Find the highest order number and add 1 for the new item
+            const maxOrder = expenses.reduce((max, p) => p.order > max ? p.order : max, 0);
+            const newOrder = maxOrder + 1;
+
+            try {
+                await db.collection('expenses').add({
+                    category: category,
+                    amount: amount,
+                    color: color,
+                    order: newOrder
+                });
+                console.log("New expense added!");
+                document.getElementById('add-expense-form').reset(); // Clear the form fields
+                await fetchExpenses(); // Refresh the entire list from the database
+            } catch (error) {
+                console.error("Error adding document: ", error);
+            }
         }
 
         function updateCalculations() {
@@ -465,9 +553,11 @@
             });
         }
 
-        // Initialize the calculator by fetching data from Firebase
+        // Initialize by fetching data
         fetchExpenses();
+        
+        // NEW: Connect the form submission to our JavaScript function
+        document.getElementById('add-expense-form').addEventListener('submit', handleAddNewExpense);
     </script>
 </body>
 </html>
-
