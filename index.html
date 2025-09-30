@@ -294,7 +294,6 @@
             font-size: 1.5rem;
             margin-bottom: 15px;
         }
-        /* MODIFIED: Changed grid back to 3 columns */
         .form-grid {
             display: grid;
             grid-template-columns: 2fr 1fr 1fr;
@@ -480,18 +479,69 @@
 
         const authContainer = document.getElementById('auth-container');
         const appContainer = document.getElementById('app-container');
-        // ... other auth variables
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const toggleAuth = document.getElementById('toggle-auth');
+        const authTitle = document.getElementById('auth-title');
+        const errorMessage = document.getElementById('error-message');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        toggleAuth.addEventListener('click', () => {
+            if (loginForm.style.display === 'none') {
+                loginForm.style.display = 'block';
+                signupForm.style.display = 'none';
+                authTitle.textContent = 'Login';
+                toggleAuth.textContent = 'Need an account? Sign Up';
+            } else {
+                loginForm.style.display = 'none';
+                signupForm.style.display = 'block';
+                authTitle.textContent = 'Sign Up';
+                toggleAuth.textContent = 'Have an account? Login';
+            }
+            errorMessage.textContent = '';
+        });
+
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            auth.createUserWithEmailAndPassword(email, password)
+                .catch(error => { errorMessage.textContent = error.message; });
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            auth.signInWithEmailAndPassword(email, password)
+                .catch(error => { errorMessage.textContent = error.message; });
+        });
         
-        // ... auth event listeners
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut();
+        });
 
         auth.onAuthStateChanged(user => {
-            // ... auth state logic
+            errorMessage.textContent = '';
+            if (user) {
+                authContainer.style.display = 'none';
+                appContainer.style.display = 'block';
+                fetchExpenses(user.uid);
+            } else {
+                authContainer.style.display = 'block';
+                appContainer.style.display = 'none';
+            }
         });
 
         let expenses = [];
         let chart = null;
 
         async function fetchExpenses(userId) {
+            if (!userId) {
+                expenses = [];
+                updateCalculations();
+                return;
+            };
             try {
                 const snapshot = await db.collection('users').doc(userId).collection('expenses').get();
                 let fetchedExpenses = [];
@@ -510,16 +560,67 @@
                 console.error("Error fetching expenses: ", error);
             }
         }
-        
-        // NEW: Function to suggest the next color in the form
+
         function suggestNextColor() {
-            const nextColor = COLOR_PALETTE[expenses.length % COLOR_PALETTE.length];
-            document.getElementById('new-color').value = nextColor;
+            if(document.getElementById('new-color')) {
+                const nextColor = COLOR_PALETTE[expenses.length % COLOR_PALETTE.length];
+                document.getElementById('new-color').value = nextColor;
+            }
         }
 
-        // ... other functions (formatCurrency, formatNumberInput, updateExpense, deleteExpense)
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        }
 
-        // MODIFIED: This function now reads the color from the form
+        function formatNumberInput(inputElement) {
+            let value = inputElement.value;
+            let number = value.replace(/[^0-9]/g, '');
+            if (number) {
+                const formattedValue = new Intl.NumberFormat('en-US').format(number);
+                inputElement.value = formattedValue;
+            } else {
+                inputElement.value = '';
+            }
+        }
+
+        function updateExpense(index, value) {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const docIdToUpdate = expenses[index].docId;
+            const newAmount = parseFloat(value.replace(/,/g, '')) || 0;
+            
+            db.collection('users').doc(user.uid).collection('expenses').doc(docIdToUpdate).update({ amount: newAmount })
+                .then(() => {
+                    console.log("Document successfully updated!");
+                    expenses[index].amount = newAmount;
+                    updateCalculations();
+                })
+                .catch(error => {
+                    console.error("Error updating document: ", error);
+                });
+        }
+        
+        async function deleteExpense(docId) {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            if (confirm('Are you sure you want to delete this expense?')) {
+                try {
+                    await db.collection('users').doc(user.uid).collection('expenses').doc(docId).delete();
+                    console.log("Document successfully deleted!");
+                    await fetchExpenses(user.uid);
+                } catch (error) {
+                    console.error("Error removing document: ", error);
+                }
+            }
+        }
+
         async function handleAddNewExpense(event) {
             event.preventDefault(); 
             const user = auth.currentUser;
@@ -527,7 +628,7 @@
 
             const category = document.getElementById('new-category').value;
             const amount = parseFloat(document.getElementById('new-amount').value);
-            const color = document.getElementById('new-color').value; // Read color from input
+            const color = document.getElementById('new-color').value;
             
             if (!category || isNaN(amount)) {
                 alert('Please enter a valid category and amount.');
@@ -541,7 +642,7 @@
                 await db.collection('users').doc(user.uid).collection('expenses').add({
                     category: category,
                     amount: amount,
-                    color: color, // Use the color from the form
+                    color: color,
                     order: newOrder
                 });
                 console.log("New expense added!");
@@ -553,9 +654,13 @@
         }
 
         function updateCalculations() {
-            // ... beginning of function is preserved
             const budget = parseFloat(document.getElementById('budget').value) || 0;
-            // ... all calculations are preserved
+            const monthsToYearEnd = parseInt(document.getElementById('months-to-year-end').value) || 6;
+            const totalMonthly = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const totalAnnual = totalMonthly * 12;
+            const remainingMonthly = budget - totalMonthly;
+            const remainingAnnual = remainingMonthly * 12;
+            const yearEndProjection = remainingMonthly * monthsToYearEnd;
 
             const tableBody = document.getElementById('expenses-table');
             tableBody.innerHTML = '';
@@ -579,15 +684,87 @@
                 tableBody.appendChild(row);
             });
 
-            // ... all total updates are preserved
+            document.getElementById('total-monthly').textContent = formatCurrency(totalMonthly);
+            document.getElementById('total-annual').textContent = formatCurrency(totalAnnual);
+            
+            const remainingMonthlyEl = document.getElementById('remaining-monthly');
+            const remainingAnnualEl = document.getElementById('remaining-annual');
+            const yearEndAmountEl = document.getElementById('year-end-amount');
+            
+            remainingMonthlyEl.textContent = formatCurrency(remainingMonthly);
+            remainingAnnualEl.textContent = formatCurrency(remainingAnnual);
+            yearEndAmountEl.textContent = formatCurrency(yearEndProjection);
+            
+            remainingMonthlyEl.className = `total-amount ${remainingMonthly >= 0 ? 'positive' : 'negative'}`;
+            remainingAnnualEl.className = `total-amount ${remainingAnnual >= 0 ? 'positive' : 'negative'}`;
+            yearEndAmountEl.className = `year-end-amount ${yearEndProjection >= 0 ? 'positive' : 'negative'}`;
 
             updateChart(totalMonthly);
-            
-            // NEW: Call the function to suggest the next color
             suggestNextColor();
         }
 
-        // ... updateChart and updateLegend functions are preserved
+        function updateChart(totalMonthly) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const sortedExpenses = [...expenses].sort((a, b) => b.amount - a.amount);
+            
+            const chartData = {
+                labels: sortedExpenses.map(expense => expense.category),
+                datasets: [{
+                    data: sortedExpenses.map(expense => expense.amount),
+                    backgroundColor: sortedExpenses.map(expense => expense.color),
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            };
+
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const amount = context.parsed.y;
+                                    const percentage = ((amount / totalMonthly) * 100).toFixed(1);
+                                    return [`Amount: ${formatCurrency(amount)}`, `Percentage: ${percentage}%`];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: value => formatCurrency(value) }
+                        },
+                        x: { ticks: { maxRotation: 45, minRotation: 45 } }
+                    }
+                }
+            });
+
+            updateLegend(sortedExpenses, totalMonthly);
+        }
+
+        function updateLegend(sortedExpenses, totalMonthly) {
+            const legend = document.getElementById('chart-legend');
+            legend.innerHTML = '';
+            
+            sortedExpenses.slice(0, 8).forEach(expense => {
+                const percentage = ((expense.amount / totalMonthly) * 100).toFixed(1);
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+                legendItem.innerHTML = `
+                    <div class="legend-color" style="background-color: ${expense.color}"></div>
+                    <span>${expense.category}: ${percentage}%</span>
+                `;
+                legend.appendChild(legendItem);
+            });
+        }
         
         document.getElementById('add-expense-form').addEventListener('submit', handleAddNewExpense);
     </script>
