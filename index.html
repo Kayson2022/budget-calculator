@@ -20,6 +20,12 @@
             background-color: #f8fafc;
             padding: 20px;
         }
+
+        /* NEW: Style for the placeholder text */
+        .amount-input::placeholder {
+            color: #9ca3af;
+            font-weight: normal;
+        }
         
         .container {
             max-width: 1200px;
@@ -78,6 +84,20 @@
             font-size: 1.8rem;
             color: #1f2937;
             margin-bottom: 20px;
+        }
+         /* NEW: Style for the view toggle button */
+        .view-toggle {
+            margin-bottom: 15px;
+            text-align: right;
+        }
+
+        .view-toggle button {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            background-color: #e5e7eb;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            cursor: pointer;
         }
         
         table {
@@ -188,6 +208,11 @@
         <div class="main-content">
             <div class="expenses-section">
                 <h2>Expenses</h2>
+
+                <div class="view-toggle">
+                    <button id="view-toggle-btn">Switch to "Value" View</button>
+                </div>
+                
                 <table>
                     <thead>
                         <tr>
@@ -196,8 +221,7 @@
                             <th style="text-align: right;">Annual</th>
                         </tr>
                     </thead>
-                    <tbody id="expenses-table">
-                        </tbody>
+                    <tbody id="expenses-table"></tbody>
                 </table>
                 
                 <div class="totals-section">
@@ -213,9 +237,7 @@
                             <div class="total-label">Annual</div>
                         </div>
                     </div>
-                    
                     <hr>
-                    
                     <div class="totals-grid">
                         <div class="total-item">
                             <h3>Remaining Buffer</h3>
@@ -236,14 +258,12 @@
                 <div class="chart-container">
                     <canvas id="expenseChart"></canvas>
                 </div>
-                <div class="legend" id="chart-legend">
-                    </div>
+                <div class="legend" id="chart-legend"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // PASTE YOUR FIREBASE CONFIG OBJECT HERE
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_AUTH_DOMAIN",
@@ -253,23 +273,20 @@
             appId: "YOUR_APP_ID"
         };
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // This array will be populated from Firebase
         let expenses = [];
         let chart = null;
-        
-        // --- NEW: FETCH DATA FROM FIRESTORE ---
+        // NEW: State variable for display mode, defaulting to placeholder
+        let displayMode = 'placeholder';
+
         async function fetchExpenses() {
             const snapshot = await db.collection('expenses').get();
-            expenses = []; // Clear local array
+            expenses = [];
             snapshot.forEach(doc => {
-                // Store the document ID with the data
                 expenses.push({ id: doc.id, ...doc.data() });
             });
-            // Initial render after fetching data
             updateCalculations();
         }
 
@@ -282,16 +299,13 @@
             }).format(amount);
         }
 
-        // --- UPDATED: UPDATE EXPENSE IN FIRESTORE ---
         function updateExpense(index, value) {
             const expenseId = expenses[index].id;
             const newAmount = parseFloat(value) || 0;
             
-            // Update Firestore document
             db.collection('expenses').doc(expenseId).update({ amount: newAmount })
                 .then(() => {
                     console.log("Document successfully updated!");
-                    // Update local array and recalculate
                     expenses[index].amount = newAmount;
                     updateCalculations();
                 })
@@ -307,24 +321,32 @@
             const remainingMonthly = budget - totalMonthly;
             const remainingAnnual = remainingMonthly * 12;
 
-            // Update table
             const tableBody = document.getElementById('expenses-table');
             tableBody.innerHTML = '';
             
             expenses.forEach((expense, index) => {
                 const row = document.createElement('tr');
+
+                // MODIFIED: Logic to switch between value and placeholder
+                let inputHtml = '';
+                if (displayMode === 'placeholder') {
+                    inputHtml = `<input type="number" class="amount-input" 
+                                        placeholder="${formatCurrency(expense.amount)}"
+                                        onchange="updateExpense(${index}, this.value)">`;
+                } else { // 'value' mode
+                    inputHtml = `<input type="number" class="amount-input" 
+                                        value="${expense.amount}" 
+                                        onchange="updateExpense(${index}, this.value)">`;
+                }
+                
                 row.innerHTML = `
                     <td><strong>${expense.category}</strong></td>
-                    <td style="text-align: right;">
-                        <input type="number" class="amount-input" value="${expense.amount}" 
-                               onchange="updateExpense(${index}, this.value)">
-                    </td>
+                    <td style="text-align: right;">${inputHtml}</td>
                     <td style="text-align: right;">${formatCurrency(expense.amount * 12)}</td>
                 `;
                 tableBody.appendChild(row);
             });
 
-            // Update totals
             document.getElementById('total-monthly').textContent = formatCurrency(totalMonthly);
             document.getElementById('total-annual').textContent = formatCurrency(totalAnnual);
             
@@ -337,14 +359,11 @@
             remainingMonthlyEl.className = `total-amount ${remainingMonthly >= 0 ? 'positive' : 'negative'}`;
             remainingAnnualEl.className = `total-amount ${remainingAnnual >= 0 ? 'positive' : 'negative'}`;
 
-            // Update chart
             updateChart(totalMonthly);
         }
 
         function updateChart(totalMonthly) {
             const ctx = document.getElementById('expenseChart').getContext('2d');
-            
-            // Sort expenses by amount (descending)
             const sortedExpenses = [...expenses].sort((a, b) => b.amount - a.amount);
             
             const chartData = {
@@ -357,9 +376,7 @@
                 }]
             };
 
-            if (chart) {
-                chart.destroy();
-            }
+            if (chart) chart.destroy();
 
             chart = new Chart(ctx, {
                 type: 'bar',
@@ -368,18 +385,13 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            display: false
-                        },
+                        legend: { display: false },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
                                     const amount = context.parsed.y;
                                     const percentage = ((amount / totalMonthly) * 100).toFixed(1);
-                                    return [
-                                        `Amount: ${formatCurrency(amount)}`,
-                                        `Percentage: ${percentage}%`
-                                    ];
+                                    return [`Amount: ${formatCurrency(amount)}`, `Percentage: ${percentage}%`];
                                 }
                             }
                         }
@@ -387,23 +399,13 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return formatCurrency(value);
-                                }
-                            }
+                            ticks: { callback: value => formatCurrency(value) }
                         },
-                        x: {
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
+                        x: { ticks: { maxRotation: 45, minRotation: 45 } }
                     }
                 }
             });
 
-            // Update legend
             updateLegend(sortedExpenses, totalMonthly);
         }
 
@@ -411,7 +413,6 @@
             const legend = document.getElementById('chart-legend');
             legend.innerHTML = '';
             
-            // Show top 8 expenses in legend
             sortedExpenses.slice(0, 8).forEach(expense => {
                 const percentage = ((expense.amount / totalMonthly) * 100).toFixed(1);
                 const legendItem = document.createElement('div');
@@ -423,8 +424,20 @@
                 legend.appendChild(legendItem);
             });
         }
+        
+        // NEW: Event listener for the button
+        document.getElementById('view-toggle-btn').addEventListener('click', () => {
+            const btn = document.getElementById('view-toggle-btn');
+            if (displayMode === 'placeholder') {
+                displayMode = 'value';
+                btn.textContent = 'Switch to "Placeholder" View';
+            } else {
+                displayMode = 'placeholder';
+                btn.textContent = 'Switch to "Value" View';
+            }
+            updateCalculations(); // Re-render the table with the new mode
+        });
 
-        // Initialize the calculator by fetching data from Firestore
         fetchExpenses();
     </script>
 </body>
