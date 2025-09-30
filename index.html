@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <style>
-        /* Your CSS remains exactly the same */
+        /* Your original CSS is preserved exactly */
         * {
             margin: 0;
             padding: 0;
@@ -19,12 +19,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f8fafc;
             padding: 20px;
-        }
-
-        /* NEW: Style for the placeholder text */
-        .amount-input::placeholder {
-            color: #9ca3af;
-            font-weight: normal;
         }
         
         .container {
@@ -58,13 +52,39 @@
             margin-bottom: 10px;
         }
         
-        .budget-input {
+        .budget-input, .months-input {
             font-size: 1.8rem;
             font-weight: bold;
             padding: 12px;
             border: 2px solid #93c5fd;
             border-radius: 8px;
             width: 200px;
+            margin-right: 20px;
+        }
+        
+        .budget-section .input-group {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .year-end-projection {
+            font-size: 1.2rem;
+            color: #374151;
+            margin-top: 10px;
+        }
+        
+        .year-end-amount {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        
+        .year-end-amount.positive {
+            color: #16a34a;
+        }
+        
+        .year-end-amount.negative {
+            color: #dc2626;
         }
         
         .main-content {
@@ -85,20 +105,6 @@
             color: #1f2937;
             margin-bottom: 20px;
         }
-         /* NEW: Style for the view toggle button */
-        .view-toggle {
-            margin-bottom: 15px;
-            text-align: right;
-        }
-
-        .view-toggle button {
-            padding: 8px 16px;
-            font-size: 0.9rem;
-            background-color: #e5e7eb;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            cursor: pointer;
-        }
         
         table {
             width: 100%;
@@ -115,6 +121,17 @@
         th {
             background-color: #f3f4f6;
             font-weight: 600;
+        }
+        
+        th:first-child {
+            width: 50px;
+            text-align: center;
+        }
+        
+        td:first-child {
+            text-align: center;
+            font-weight: bold;
+            color: #6b7280;
         }
         
         .amount-input {
@@ -201,21 +218,28 @@
         <h1>Budget Calculator</h1>
         
         <div class="budget-section">
-            <label for="budget">Monthly Budget:</label>
-            <input type="number" id="budget" class="budget-input" value="10000" onchange="updateCalculations()">
+            <div class="input-group">
+                <div>
+                    <label for="budget">Monthly Budget:</label>
+                    <input type="number" id="budget" class="budget-input" value="10000" onchange="updateCalculations()">
+                </div>
+                <div>
+                    <label for="months-to-year-end">Months to Year-End:</label>
+                    <input type="number" id="months-to-year-end" class="months-input" value="6" min="1" max="12" onchange="updateCalculations()">
+                </div>
+            </div>
+            <div class="year-end-projection">
+                Projected Year-End Amount: <span id="year-end-amount" class="year-end-amount">$0</span>
+            </div>
         </div>
         
         <div class="main-content">
             <div class="expenses-section">
                 <h2>Expenses</h2>
-
-                <div class="view-toggle">
-                    <button id="view-toggle-btn">Switch to "Value" View</button>
-                </div>
-                
                 <table>
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>Category</th>
                             <th style="text-align: right;">Monthly</th>
                             <th style="text-align: right;">Annual</th>
@@ -264,30 +288,48 @@
     </div>
 
     <script>
+        // PASTE YOUR FIREBASE CONFIG OBJECT HERE
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
+            apiKey: "AIzaSyCQyt_NZRL2udbvzz6H5LBD2A_YE1ubSWo",
+  authDomain: "my-budget-app-34e34.firebaseapp.com",
+  projectId: "my-budget-app-34e34",
+  storageBucket: "my-budget-app-34e34.firebasestorage.app",
+  messagingSenderId: "843562391287",
+  appId: "1:843562391287:web:6506cf35c9f302de4665f2"
+};
 
+
+        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // This array will be populated from Firebase
         let expenses = [];
         let chart = null;
-        // NEW: State variable for display mode, defaulting to placeholder
-        let displayMode = 'placeholder';
 
+        // NEW: Function to fetch data from Firebase
         async function fetchExpenses() {
-            const snapshot = await db.collection('expenses').get();
-            expenses = [];
-            snapshot.forEach(doc => {
-                expenses.push({ id: doc.id, ...doc.data() });
-            });
-            updateCalculations();
+            try {
+                const snapshot = await db.collection('expenses').get();
+                let fetchedExpenses = [];
+                snapshot.forEach(doc => {
+                    // Store the Firestore document ID along with the data
+                    fetchedExpenses.push({ docId: doc.id, ...doc.data() });
+                });
+                
+                // Sort by category to ensure a consistent order, then assign display IDs
+                expenses = fetchedExpenses
+                    .sort((a, b) => a.category.localeCompare(b.category))
+                    .map((expense, index) => ({
+                        ...expense,
+                        displayId: index + 1 // This is the visual ID for the table
+                    }));
+
+                updateCalculations();
+            } catch (error) {
+                console.error("Error fetching expenses: ", error);
+                // Optionally, display an error message to the user
+            }
         }
 
         function formatCurrency(amount) {
@@ -299,13 +341,15 @@
             }).format(amount);
         }
 
+        // MODIFIED: updateExpense now saves to Firebase
         function updateExpense(index, value) {
-            const expenseId = expenses[index].id;
+            const docIdToUpdate = expenses[index].docId;
             const newAmount = parseFloat(value) || 0;
             
-            db.collection('expenses').doc(expenseId).update({ amount: newAmount })
+            db.collection('expenses').doc(docIdToUpdate).update({ amount: newAmount })
                 .then(() => {
                     console.log("Document successfully updated!");
+                    // Update local array and recalculate everything
                     expenses[index].amount = newAmount;
                     updateCalculations();
                 })
@@ -316,32 +360,25 @@
 
         function updateCalculations() {
             const budget = parseFloat(document.getElementById('budget').value) || 0;
+            const monthsToYearEnd = parseInt(document.getElementById('months-to-year-end').value) || 6;
             const totalMonthly = expenses.reduce((sum, expense) => sum + expense.amount, 0);
             const totalAnnual = totalMonthly * 12;
             const remainingMonthly = budget - totalMonthly;
             const remainingAnnual = remainingMonthly * 12;
+            const yearEndProjection = remainingMonthly * monthsToYearEnd;
 
             const tableBody = document.getElementById('expenses-table');
             tableBody.innerHTML = '';
             
             expenses.forEach((expense, index) => {
                 const row = document.createElement('tr');
-
-                // MODIFIED: Logic to switch between value and placeholder
-                let inputHtml = '';
-                if (displayMode === 'placeholder') {
-                    inputHtml = `<input type="number" class="amount-input" 
-                                        placeholder="${formatCurrency(expense.amount)}"
-                                        onchange="updateExpense(${index}, this.value)">`;
-                } else { // 'value' mode
-                    inputHtml = `<input type="number" class="amount-input" 
-                                        value="${expense.amount}" 
-                                        onchange="updateExpense(${index}, this.value)">`;
-                }
-                
                 row.innerHTML = `
+                    <td>${expense.displayId}</td>
                     <td><strong>${expense.category}</strong></td>
-                    <td style="text-align: right;">${inputHtml}</td>
+                    <td style="text-align: right;">
+                        <input type="number" class="amount-input" value="${expense.amount}" 
+                               onchange="updateExpense(${index}, this.value)">
+                    </td>
                     <td style="text-align: right;">${formatCurrency(expense.amount * 12)}</td>
                 `;
                 tableBody.appendChild(row);
@@ -352,12 +389,15 @@
             
             const remainingMonthlyEl = document.getElementById('remaining-monthly');
             const remainingAnnualEl = document.getElementById('remaining-annual');
+            const yearEndAmountEl = document.getElementById('year-end-amount');
             
             remainingMonthlyEl.textContent = formatCurrency(remainingMonthly);
             remainingAnnualEl.textContent = formatCurrency(remainingAnnual);
+            yearEndAmountEl.textContent = formatCurrency(yearEndProjection);
             
             remainingMonthlyEl.className = `total-amount ${remainingMonthly >= 0 ? 'positive' : 'negative'}`;
             remainingAnnualEl.className = `total-amount ${remainingAnnual >= 0 ? 'positive' : 'negative'}`;
+            yearEndAmountEl.className = `year-end-amount ${yearEndProjection >= 0 ? 'positive' : 'negative'}`;
 
             updateChart(totalMonthly);
         }
@@ -424,20 +464,8 @@
                 legend.appendChild(legendItem);
             });
         }
-        
-        // NEW: Event listener for the button
-        document.getElementById('view-toggle-btn').addEventListener('click', () => {
-            const btn = document.getElementById('view-toggle-btn');
-            if (displayMode === 'placeholder') {
-                displayMode = 'value';
-                btn.textContent = 'Switch to "Placeholder" View';
-            } else {
-                displayMode = 'placeholder';
-                btn.textContent = 'Switch to "Value" View';
-            }
-            updateCalculations(); // Re-render the table with the new mode
-        });
 
+        // Initialize the calculator by fetching data from Firebase
         fetchExpenses();
     </script>
 </body>
