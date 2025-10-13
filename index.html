@@ -789,21 +789,50 @@
         }
 
         function formatNumberInput(inputElement) {
-            let value = inputElement.value;
-            // Remove all non-digit characters except for comma and period 
-            let rawValue = value.replace(/[^0-9.]/g, ''); 
+            const cursorPosition = inputElement.selectionStart;
+            const originalValue = inputElement.value;
             
+            // 1. Remove all non-digit characters except for period and calculate how many commas were to the left of the cursor
+            let rawValue = originalValue.replace(/[^0-9.]/g, ''); 
+            
+            // Calculate the number of commas removed before the original cursor position
+            const leftOfCursor = originalValue.substring(0, cursorPosition);
+            const originalCommaCount = (leftOfCursor.match(/,/g) || []).length;
+
             if (rawValue) {
-                // Ensure only one decimal point
+                // 2. Separate integer and decimal parts
                 const parts = rawValue.split('.');
-                const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                let integerPart = parts[0];
                 const decimalPart = parts.length > 1 ? '.' + parts.slice(1).join('') : '';
 
-                inputElement.value = integerPart + decimalPart;
+                // 3. Format the integer part with thousands separator
+                const formattedIntegerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+                // 4. Construct the new formatted value
+                const newValue = formattedIntegerPart + decimalPart;
+                inputElement.value = newValue;
+
+                // 5. Calculate new cursor position based on comma change
+                const newCommaCount = (formattedIntegerPart.substring(0, cursorPosition).match(/,/g) || []).length;
+                let newCursorPosition = cursorPosition + (newCommaCount - originalCommaCount);
+
+                // Handle backspace/delete logic (if a comma was removed right next to the cursor)
+                if (originalCommaCount > newCommaCount && originalValue.length > newValue.length) {
+                    newCursorPosition = Math.max(0, cursorPosition - 1);
+                } else if (originalCommaCount < newCommaCount && originalValue.length < newValue.length) {
+                    // Handle a comma being added right at the cursor position
+                    newCursorPosition = cursorPosition + 1;
+                }
+
+                // Ensure cursor position doesn't exceed new value length
+                inputElement.setSelectionRange(newCursorPosition, newCursorPosition);
+
             } else {
                 inputElement.value = '';
+                inputElement.setSelectionRange(0, 0);
             }
         }
+
 
         function updateExpense(index, value) {
             const user = auth.currentUser;
