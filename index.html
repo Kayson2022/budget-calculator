@@ -22,6 +22,7 @@
         }
         
         .container {
+            /* Changed max-width to 100% on small screens and added horizontal padding for the content */
             max-width: 1200px;
             margin: 0 auto;
             background: white;
@@ -39,6 +40,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            z-index: 10; /* Ensure toolbar is above the title */
         }
 
         #toggle-visibility-btn {
@@ -147,7 +149,29 @@
             color: #1f2937;
             margin-bottom: 30px;
             font-size: 2.5rem;
+            /* Fix 1: Add margin-top for mobile devices to clear the floating toolbar */
         }
+
+        @media (max-width: 500px) {
+            h1 {
+                margin-top: 40px; /* Push title down to prevent overlap on small screens */
+            }
+            .container {
+                 /* Fix 2: Remove the 1200px max-width on smaller screens so the white wall stretches */
+                max-width: 100%; 
+                border-radius: 0;
+                box-shadow: none;
+                padding: 15px; /* Decrease padding on small screens */
+            }
+            body {
+                padding: 0; /* Remove body padding on mobile to make the container stretch edge-to-edge */
+            }
+            #toolbar {
+                right: 15px; /* Adjust toolbar position to match new container padding */
+                top: 15px;
+            }
+        }
+
         
         .budget-section {
             background: #eff6ff;
