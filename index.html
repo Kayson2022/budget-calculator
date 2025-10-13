@@ -457,13 +457,17 @@
             <div class="input-group">
                 <div>
                     <label for="budget">Monthly Budget:</label>
-                    <!-- Changed onchange to call updateBudgetSettings which handles both saving and updating calcs -->
-                    <input type="number" id="budget" class="budget-input" value="10000" onchange="updateBudgetSettings()">
+                    <!-- Added oninput to format live, and kept onchange to trigger the setting save/update -->
+                    <input type="number" id="budget" class="budget-input" value="10000" 
+                           oninput="formatNumberInput(this)" 
+                           onchange="updateBudgetSettings()">
                 </div>
                 <div>
                     <label for="months-to-year-end">Months to Year-End:</label>
-                    <!-- Changed onchange to call updateBudgetSettings which handles both saving and updating calcs -->
-                    <input type="number" id="months-to-year-end" class="months-input" value="6" min="1" max="12" onchange="updateBudgetSettings()">
+                    <!-- Added oninput to format live, and kept onchange to trigger the setting save/update -->
+                    <input type="number" id="months-to-year-end" class="months-input" value="6" min="1" max="12" 
+                           oninput="formatNumberInput(this)" 
+                           onchange="updateBudgetSettings()">
                 </div>
             </div>
             <div class="year-end-projection">
@@ -682,13 +686,17 @@
                     if (docSnapshot.exists) {
                         const data = docSnapshot.data();
                         
-                        // Use stored value or default if field is missing
-                        budgetInput.value = data.monthlyBudget || DEFAULT_BUDGET;
-                        monthsInput.value = data.monthsToYearEnd || DEFAULT_MONTHS;
+                        // Use stored value or default if field is missing. Format the retrieved value for display.
+                        const monthlyBudget = data.monthlyBudget || DEFAULT_BUDGET;
+                        const monthsToYearEnd = data.monthsToYearEnd || DEFAULT_MONTHS;
+                        
+                        budgetInput.value = new Intl.NumberFormat('en-US').format(monthlyBudget);
+                        monthsInput.value = new Intl.NumberFormat('en-US').format(monthsToYearEnd);
+
                     } else {
                         // Document doesn't exist, use defaults and save them for the first time
-                        budgetInput.value = DEFAULT_BUDGET;
-                        monthsInput.value = DEFAULT_MONTHS;
+                        budgetInput.value = new Intl.NumberFormat('en-US').format(DEFAULT_BUDGET);
+                        monthsInput.value = new Intl.NumberFormat('en-US').format(DEFAULT_MONTHS);
                         updateBudgetSettings(true); // Save defaults if document is new
                     }
                     updateCalculations();
@@ -705,18 +713,24 @@
             const user = auth.currentUser;
             if (!user) return;
 
-            const monthlyBudget = parseFloat(document.getElementById('budget').value) || DEFAULT_BUDGET;
-            const monthsToYearEnd = parseInt(document.getElementById('months-to-year-end').value) || DEFAULT_MONTHS;
+            // 1. Clean the comma-separated input before parsing to numerical values
+            const rawMonthlyBudget = document.getElementById('budget').value.replace(/,/g, '');
+            const rawMonthsToYearEnd = document.getElementById('months-to-year-end').value.replace(/,/g, '');
 
-            // Ensure input fields reflect the current valid numerical values
-            document.getElementById('budget').value = monthlyBudget;
-            document.getElementById('months-to-year-end').value = monthsToYearEnd;
+            const monthlyBudget = parseFloat(rawMonthlyBudget) || DEFAULT_BUDGET;
+            const monthsToYearEnd = parseInt(rawMonthsToYearEnd) || DEFAULT_MONTHS;
+
+            // 2. Ensure input fields reflect the current valid numerical values (formatted for display)
+            // The formatNumberInput oninput handler handles the immediate formatting. 
+            // We ensure that when saving, the displayed value is consistently formatted.
+            document.getElementById('budget').value = new Intl.NumberFormat('en-US').format(monthlyBudget);
+            document.getElementById('months-to-year-end').value = new Intl.NumberFormat('en-US').format(monthsToYearEnd);
 
             try {
                 const settingsRef = db.collection('users').doc(user.uid).collection('settings').doc('budget_settings');
                 
                 await settingsRef.set({
-                    monthlyBudget: monthlyBudget,
+                    monthlyBudget: monthlyBudget, // Store clean numbers in Firestore
                     monthsToYearEnd: monthsToYearEnd
                 }, { merge: true }); // Use merge so we don't overwrite other potential settings
 
@@ -776,7 +790,7 @@
 
         function formatNumberInput(inputElement) {
             let value = inputElement.value;
-            // Remove all non-digit characters except for comma and period (and then remove comma for parsing)
+            // Remove all non-digit characters except for comma and period 
             let rawValue = value.replace(/[^0-9.]/g, ''); 
             
             if (rawValue) {
@@ -903,9 +917,13 @@
         }
 
         function updateCalculations() {
-            // Read values directly from the DOM, which are now synced by fetchBudgetSettings/updateBudgetSettings
-            const budget = parseFloat(document.getElementById('budget').value) || DEFAULT_BUDGET;
-            const monthsToYearEnd = parseInt(document.getElementById('months-to-year-end').value) || DEFAULT_MONTHS;
+            // Read values directly from the DOM, parsing the formatted string value
+            const budgetInput = document.getElementById('budget').value.replace(/,/g, '');
+            const monthsInput = document.getElementById('months-to-year-end').value.replace(/,/g, '');
+            
+            const budget = parseFloat(budgetInput) || DEFAULT_BUDGET;
+            const monthsToYearEnd = parseInt(monthsInput) || DEFAULT_MONTHS;
+            
             const totalMonthly = expenses.reduce((sum, expense) => sum + expense.amount, 0);
             const totalAnnual = totalMonthly * 12;
             const remainingMonthly = budget - totalMonthly;
@@ -1025,6 +1043,7 @@
         
         // Expose functions globally for HTML calls
         window.updateBudgetSettings = updateBudgetSettings;
+        window.formatNumberInput = formatNumberInput; // Expose globally for HTML elements
     </script>
 </body>
 </html>
