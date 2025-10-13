@@ -457,15 +457,15 @@
             <div class="input-group">
                 <div>
                     <label for="budget">Monthly Budget:</label>
-                    <!-- Added oninput to format live, and kept onchange to trigger the setting save/update -->
-                    <input type="number" id="budget" class="budget-input" value="10000" 
+                    <!-- CHANGED type="number" to type="text" to allow setSelectionRange for live formatting -->
+                    <input type="text" inputmode="numeric" id="budget" class="budget-input" value="10000" 
                            oninput="formatNumberInput(this)" 
                            onchange="updateBudgetSettings()">
                 </div>
                 <div>
                     <label for="months-to-year-end">Months to Year-End:</label>
-                    <!-- Added oninput to format live, and kept onchange to trigger the setting save/update -->
-                    <input type="number" id="months-to-year-end" class="months-input" value="6" min="1" max="12" 
+                    <!-- CHANGED type="number" to type="text" to allow setSelectionRange for live formatting -->
+                    <input type="text" inputmode="numeric" id="months-to-year-end" class="months-input" value="6" min="1" max="12" 
                            oninput="formatNumberInput(this)" 
                            onchange="updateBudgetSettings()">
                 </div>
@@ -824,7 +824,7 @@
                     newCursorPosition = cursorPosition + 1;
                 }
 
-                // Ensure cursor position doesn't exceed new value length
+                // IMPORTANT: setSelectionRange only works on input type="text"
                 inputElement.setSelectionRange(newCursorPosition, newCursorPosition);
 
             } else {
