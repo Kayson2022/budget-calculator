@@ -357,14 +357,22 @@
         .empty-row td { text-align: center; color: var(--muted); padding: 20px; }
 
         .name-input {
+            display: block;
             width: 100%;
-            min-width: 120px;
+            min-width: 170px;
+            font-family: inherit;
             font-weight: 600;
             font-size: 1rem;
+            line-height: 1.3;
             padding: 5px;
             border: 1px solid transparent;
             border-radius: 4px;
             background: transparent;
+            color: var(--text);
+            resize: none;
+            overflow: hidden;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
         }
         .name-input:hover, .name-input:focus { border-color: var(--border); background: var(--input-bg); }
         .row-meta {
@@ -1596,8 +1604,23 @@
 
         // Event delegation for the expenses table
         const expensesTbody = el('expenses-table');
+        function autoSizeName(textarea) {
+            textarea.style.height = 'auto';
+            if (textarea.scrollHeight > 0) textarea.style.height = `${textarea.scrollHeight + 2}px`;
+        }
+        window.addEventListener('resize', () =>
+            expensesTbody.querySelectorAll('textarea.name-input').forEach(autoSizeName));
+
         expensesTbody.addEventListener('input', e => {
             if (e.target.dataset.field === 'amount') formatNumberInput(e.target);
+            if (e.target.dataset.field === 'category') autoSizeName(e.target);
+        });
+        // Enter saves the name instead of adding a new line
+        expensesTbody.addEventListener('keydown', e => {
+            if (e.target.dataset.field === 'category' && e.key === 'Enter') {
+                e.preventDefault();
+                e.target.blur();
+            }
         });
         expensesTbody.addEventListener('change', e => {
             const field = e.target.dataset.field;
@@ -1609,7 +1632,7 @@
             if (field === 'amount') {
                 value = parseNumber(value);
             } else if (field === 'category') {
-                value = value.trim();
+                value = value.replace(/\s+/g, ' ').trim();
                 const clash = expenses.some(x => x.docId !== docId &&
                     (x.category || '').trim().toLowerCase() === value.toLowerCase());
                 if (!value || clash) {
@@ -1661,7 +1684,7 @@
                     <tr data-id="${escapeHtml(expense.docId)}">
                         <td class="id-cell">${expense.displayId}</td>
                         <td>
-                            <input type="text" class="name-input" data-field="category" value="${escapeHtml(expense.category)}" aria-label="Category name">
+                            <textarea class="name-input" data-field="category" rows="1" maxlength="60" aria-label="Category name">${escapeHtml(expense.category)}</textarea>
                             <div class="row-meta">
                                 <input type="color" class="row-color" data-field="color" value="${color}" aria-label="Color">
                                 <select data-field="group" aria-label="Group">${groupOptions(expense.group)}</select>
@@ -1681,6 +1704,8 @@
                         </td>
                     </tr>`;
             }).join('');
+
+            expensesTbody.querySelectorAll('textarea.name-input').forEach(autoSizeName);
 
             if (restore) {
                 const row = [...expensesTbody.querySelectorAll('tr')].find(r => r.dataset.id === restore.id);
