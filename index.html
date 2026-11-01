@@ -681,6 +681,39 @@
             .goal-form .form-button { grid-column: 1 / -1; }
         }
 
+        /* ---------- Collapsible panels ---------- */
+        .collapse-toggle {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            text-align: left;
+            padding: 0;
+        }
+        .collapse-title {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 4px 14px;
+        }
+        .collapse-title h2 { margin-bottom: 0 !important; }
+        .collapse-mini { font-size: 0.95rem; color: var(--muted); }
+        .chevron {
+            font-size: 1.4rem;
+            color: var(--muted);
+            transition: transform 0.2s ease;
+        }
+        .collapse-body { margin-top: 15px; }
+        .collapsible.collapsed .collapse-body { display: none; }
+        .collapsible.collapsed .chevron { transform: rotate(-90deg); }
+        .collapsible:not(.collapsed) .collapse-mini { display: none; }
+        .collapse-body > .panel-header { justify-content: flex-end; margin-bottom: 10px; }
+
         /* ---------- History ---------- */
         .history-chart-container { height: 300px; }
 
@@ -917,9 +950,16 @@
         </div>
 
         <!-- Spending tracker -->
-        <section class="panel">
+        <section class="panel collapsible" data-panel="tracker">
+            <button type="button" class="collapse-toggle" aria-expanded="false">
+                <span class="collapse-title">
+                    <h2>Spending Tracker</h2>
+                    <span class="collapse-mini sensitive" id="tracker-mini"></span>
+                </span>
+                <span class="chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="collapse-body">
             <div class="panel-header">
-                <h2>Spending Tracker</h2>
                 <div class="month-nav">
                     <button type="button" id="prev-month" aria-label="Previous month">‹</button>
                     <input type="month" id="month-picker">
@@ -978,11 +1018,19 @@
                 <input type="file" id="import-file" accept=".csv,text/csv" hidden>
                 <p class="csv-hint">Import expects a CSV with <strong>Date</strong>, <strong>Amount</strong> and <strong>Category</strong> columns (Note/Memo optional). Category names must match your expenses. Dates can be YYYY-MM-DD or MM/DD/YYYY.</p>
             </div>
+            </div>
         </section>
 
         <!-- Savings goals -->
-        <section class="panel">
-            <h2>Savings Goals</h2>
+        <section class="panel collapsible" data-panel="goals">
+            <button type="button" class="collapse-toggle" aria-expanded="false">
+                <span class="collapse-title">
+                    <h2>Savings Goals</h2>
+                    <span class="collapse-mini sensitive" id="goals-mini"></span>
+                </span>
+                <span class="chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="collapse-body">
             <p class="panel-hint" id="goals-summary"></p>
             <div id="goals-list" class="goals-grid"></div>
             <form id="add-goal-form" class="goal-form">
@@ -1004,6 +1052,7 @@
                 </div>
                 <button type="submit" class="form-button inline">Add Goal</button>
             </form>
+            </div>
         </section>
 
         <!-- History -->
@@ -1303,6 +1352,22 @@
             isValuesBlurred = !isValuesBlurred;
             storeSet('budget-blur', isValuesBlurred ? '1' : '0');
             applyBlur();
+        });
+
+        /* ================= Collapsible panels (collapsed by default, remembered) ================= */
+        document.querySelectorAll('.collapsible').forEach(panel => {
+            const key = `budget-open-${panel.dataset.panel}`;
+            const toggle = panel.querySelector('.collapse-toggle');
+            const setOpen = open => {
+                panel.classList.toggle('collapsed', !open);
+                toggle.setAttribute('aria-expanded', String(open));
+            };
+            setOpen(storeGet(key) === '1');
+            toggle.addEventListener('click', () => {
+                const open = panel.classList.contains('collapsed');
+                setOpen(open);
+                storeSet(key, open ? '1' : '0');
+            });
         });
 
         /* ================= Auth ================= */
@@ -1933,6 +1998,11 @@
                    <span class="sensitive"><strong>${formatCurrency(actualTotal)}</strong> of ${formatCurrency(plannedTotal)} planned
                    (<span class="${leftClass}">${formatCurrency(Math.abs(plannedTotal - actualTotal))} ${plannedTotal - actualTotal >= 0 ? 'left' : 'over'}</span>)</span>${pace}`
                 : 'Loading…';
+            el('tracker-mini').textContent = loaded.transactions
+                ? (transactions.length
+                    ? `${monthLabel(selectedMonth, true)}: ${formatCurrency(actualTotal)} of ${formatCurrency(plannedTotal)} spent`
+                    : `Nothing logged for ${monthLabel(selectedMonth, true)}`)
+                : '';
 
             // Category bars
             let overCount = 0;
@@ -2180,6 +2250,11 @@
                         </div>
                     </div>`;
             }).join('');
+
+            el('goals-mini').textContent = goals.length
+                ? `${goals.length} goal${goals.length === 1 ? '' : 's'}` +
+                  (totalNeeded > 0 ? ` · ${formatCurrency(totalNeeded)}/month needed` : '')
+                : 'No goals yet';
 
             const summary = el('goals-summary');
             if (!goals.length) {
