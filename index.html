@@ -389,6 +389,7 @@
             border-radius: 4px;
         }
         .freq-select { margin-top: 6px; width: 100px; }
+        .monthly-equiv { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
         .row-color {
             width: 28px;
             height: 24px;
@@ -868,8 +869,7 @@
                             <tr>
                                 <th class="id-cell">#</th>
                                 <th>Category</th>
-                                <th class="num">Amount</th>
-                                <th class="num">Monthly</th>
+                                <th class="num">Amount / Monthly</th>
                                 <th class="num">Annual</th>
                                 <th></th>
                             </tr>
@@ -1673,7 +1673,7 @@
             }
 
             if (expenses.length === 0) {
-                expensesTbody.innerHTML = '<tr class="empty-row"><td colspan="6">No expenses yet — add one below.</td></tr>';
+                expensesTbody.innerHTML = '<tr class="empty-row"><td colspan="5">No expenses yet — add one below.</td></tr>';
                 return;
             }
 
@@ -1694,8 +1694,9 @@
                             <input type="text" inputmode="decimal" class="amount-input" data-field="amount" value="${formatNumber(expense.amount)}" aria-label="Amount">
                             <br>
                             <select class="freq-select" data-field="frequency" aria-label="How often">${frequencyOptions(expense.frequency)}</select>
+                            ${(expense.frequency || 'monthly') !== 'monthly'
+                                ? `<div class="monthly-equiv sensitive">≈ ${formatCurrency(monthly)}/mo</div>` : ''}
                         </td>
-                        <td class="num sensitive">${formatCurrency(monthly)}</td>
                         <td class="num annual-td">${formatCurrency(monthly * 12)}</td>
                         <td class="row-actions">
                             <button data-action="up" title="Move up" ${index === 0 ? 'disabled' : ''}>▲</button>
