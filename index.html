@@ -503,40 +503,6 @@
             .chart-container { height: 300px; }
             .legend { grid-template-columns: 1fr; gap: 8px; }
         }
-        .chart-section.mode-bar .chart-container,
-        .chart-section.mode-bar .legend { display: none; }
-        .chart-section:not(.mode-bar) .hbar-list { display: none; }
-
-        /* ---------- Horizontal bar breakdown ---------- */
-        .hbar-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
-        .hbar-top {
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-            margin-bottom: 5px;
-            font-size: 0.92rem;
-        }
-        .hbar-dot {
-            width: 10px; height: 10px; border-radius: 50%;
-            flex-shrink: 0; align-self: center;
-        }
-        .hbar-name {
-            flex: 1; min-width: 0;
-            color: var(--text); font-weight: 500;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .hbar-amt { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-        .hbar-pct {
-            color: var(--muted); font-size: 0.82rem; font-variant-numeric: tabular-nums;
-            min-width: 3.4em; text-align: right;
-        }
-        .hbar-track { height: 8px; background: var(--track); border-radius: 999px; overflow: hidden; }
-        .hbar-fill { height: 100%; border-radius: 999px; transition: width .4s ease; }
-        .hbar-note { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
-        .hbar-empty { color: var(--muted); font-size: 0.9rem; padding: 12px 0; }
-        @media (max-width: 600px) {
-            .hbar-top { font-size: 0.88rem; gap: 6px; }
-        }
         .legend-color {
             width: 16px;
             height: 16px;
@@ -1013,7 +979,6 @@
                 <div class="chart-container">
                     <canvas id="expenseChart"></canvas>
                 </div>
-                <div class="hbar-list" id="hbar-list"></div>
                 <div class="legend" id="chart-legend"></div>
 
                 <div class="rule-panel">
@@ -1896,16 +1861,6 @@
                 .map(e => ({ ...e, monthly: monthlyOf(e) }))
                 .sort((a, b) => b.monthly - a.monthly);
             const sorted = all.filter(e => e.monthly > 0);
-            const zeroItems = all.filter(e => !(e.monthly > 0));
-
-            const section = el('expenseChart').closest('.chart-section');
-            section.classList.toggle('mode-bar', chartType === 'bar');
-
-            if (chartType === 'bar') {
-                if (chart) { chart.destroy(); chart = null; }
-                renderBarList(sorted, zeroItems, totalMonthly);
-                return;
-            }
 
             updateLegend(sorted, totalMonthly);
             if (!HAS_CHART) return;
@@ -1929,59 +1884,6 @@
                     data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 1, borderColor }] },
                     options: chartOptions(totalMonthly)
                 });
-            }
-        }
-
-        function renderBarList(sorted, zeroItems, totalMonthly) {
-            const list = el('hbar-list');
-            list.innerHTML = '';
-            if (!sorted.length) {
-                const empty = document.createElement('div');
-                empty.className = 'hbar-empty';
-                empty.textContent = 'No expenses yet.';
-                list.appendChild(empty);
-                return;
-            }
-            const max = sorted[0].monthly;
-            sorted.forEach(expense => {
-                const color = expense.color || '#a3a3a3';
-                const row = document.createElement('div');
-                row.className = 'hbar-row';
-                row.title = `${expense.category}: ${formatCurrency(expense.monthly)} / month`;
-
-                const top = document.createElement('div');
-                top.className = 'hbar-top';
-                const dot = document.createElement('span');
-                dot.className = 'hbar-dot';
-                dot.style.backgroundColor = color;
-                const name = document.createElement('span');
-                name.className = 'hbar-name';
-                name.textContent = expense.category;
-                const amt = document.createElement('span');
-                amt.className = 'hbar-amt sensitive';
-                amt.textContent = formatCurrency(expense.monthly);
-                const pct = document.createElement('span');
-                pct.className = 'hbar-pct';
-                pct.textContent = `${percentOf(expense.monthly, totalMonthly)}%`;
-                top.append(dot, name, amt, pct);
-
-                const track = document.createElement('div');
-                track.className = 'hbar-track';
-                const fill = document.createElement('div');
-                fill.className = 'hbar-fill';
-                fill.style.backgroundColor = color;
-                fill.style.width = `${Math.max(1.5, (expense.monthly / max) * 100)}%`;
-                track.appendChild(fill);
-
-                row.append(top, track);
-                list.appendChild(row);
-            });
-            if (zeroItems.length) {
-                const note = document.createElement('div');
-                note.className = 'hbar-note';
-                note.textContent = `${zeroItems.length} item${zeroItems.length > 1 ? 's' : ''} at $0 not shown: ` +
-                    zeroItems.map(e => e.category).join(', ');
-                list.appendChild(note);
             }
         }
 
