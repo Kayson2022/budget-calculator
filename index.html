@@ -376,13 +376,28 @@
         }
         .name-input:hover, .name-input:focus { border-color: var(--border); background: var(--input-bg); }
         .row-meta {
-            display: flex;
+            display: inline-flex;
+            align-items: center;
             gap: 6px;
             margin-top: 6px;
-            align-items: center;
-            flex-wrap: wrap;
+            padding: 3px 4px 3px 3px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--input-bg);
+            transition: box-shadow .15s, border-color .15s;
         }
-        .row-meta select, .freq-select {
+        .row-meta:hover { border-color: var(--muted); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        .row-meta select {
+            border: none;
+            background: transparent;
+            font-size: .78rem;
+            font-weight: 500;
+            color: var(--text-2);
+            padding: 2px;
+            cursor: pointer;
+            outline: none;
+        }
+        .freq-select {
             font-size: 0.8rem;
             padding: 3px;
             border: 1px solid var(--border);
@@ -391,14 +406,24 @@
         .freq-select { margin-top: 6px; width: 100px; }
         .monthly-equiv { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
         .row-color {
-            width: 28px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             padding: 0;
-            border: 1px solid var(--border);
-            border-radius: 4px;
+            margin-left: 2px;
+            border: none;
+            border-radius: 50%;
             cursor: pointer;
             background: none;
+            overflow: hidden;
+            -webkit-appearance: none;
+            appearance: none;
+            box-shadow: 0 0 0 2px var(--input-bg), 0 0 0 3px rgba(0,0,0,.15);
+            transition: transform .15s;
         }
+        .row-color:hover { transform: scale(1.12); }
+        .row-color::-webkit-color-swatch-wrapper { padding: 0; }
+        .row-color::-webkit-color-swatch { border: none; border-radius: 50%; }
+        .row-color::-moz-color-swatch { border: none; border-radius: 50%; }
         .amount-input {
             width: 100px;
             text-align: right;
