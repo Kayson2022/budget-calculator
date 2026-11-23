@@ -793,7 +793,13 @@
         .modal-cancel { background: var(--surface-3); color: var(--text); }
 
         /* ---------- Overview dashboard ---------- */
-        .ov { display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px; }
+        .ov-panel {
+            border: 1px solid var(--border-soft); border-radius: 16px; padding: 16px 20px; margin-bottom: 30px;
+            background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface) 60%);
+        }
+        .ov-panel > .collapse-toggle h2 { font-size: 1.5rem; }
+        .ov-panel.collapsed { padding-top: 14px; padding-bottom: 14px; }
+        .ov { display: flex; flex-direction: column; gap: 16px; }
         .ov-card {
             background: var(--surface-2);
             border: 1px solid var(--border-soft);
@@ -957,6 +963,15 @@
         <div id="alert-banner" class="alert-banner" role="status"></div>
 
         <!-- Overview dashboard -->
+        <section class="ov-panel collapsible" data-panel="overview">
+            <button type="button" class="collapse-toggle" aria-expanded="false">
+                <span class="collapse-title">
+                    <h2>Overview</h2>
+                    <span class="collapse-mini sensitive" id="ov-mini"></span>
+                </span>
+                <span class="chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="collapse-body">
         <section class="ov" id="overview" aria-label="Overview">
             <div class="ov-monthbar">
                 <div class="ov-months" id="ov-months" role="group" aria-label="Choose a month"></div>
@@ -1022,6 +1037,8 @@
                 <p class="panel-hint">How much of each category's plan you used each month (uses today's plan amounts). Click a month to open it.</p>
                 <div class="ov-chart ov-heat" id="ov-heat"></div>
                 <div class="ov-heat-legend"><span>0%</span><i class="ov-heat-scale"></i><span>100%+</span><span style="margin-left:8px">Striped = nothing logged</span></div>
+            </div>
+        </section>
             </div>
         </section>
 
@@ -2780,6 +2797,7 @@
         function renderOverviewNow() {
             if (!el('overview') || !auth.currentUser) return;
             const st = overviewStats();
+            if (el('overview').closest('.collapsed')) { renderHero(st); return; }
             renderMonthPills(st);
             renderHero(st);
             renderKpis(st);
@@ -2863,6 +2881,9 @@
             } else change.textContent = '';
 
             el('ov-ring').innerHTML = ringSvg(pct, pct > 100);
+            el('ov-mini').textContent = planned > 0 && loaded.transactions
+                ? `${monthLabel(selectedMonth, true)}: ${formatCurrency(Math.abs(left))} ${left >= 0 ? 'left' : 'over'} · ${Math.round(pct)}% of plan used`
+                : '';
         }
 
         function renderKpis(st) {
@@ -3062,6 +3083,13 @@
                 if (t && t.dataset.month !== selectedMonth) setSelectedMonth(t.dataset.month);
             });
         }
+
+        document.querySelectorAll('[data-panel="overview"] .collapse-toggle').forEach(btn =>
+            btn.addEventListener('click', () => {
+                el('ov-months').dataset.scrolled = '';
+                el('ov-heat').dataset.scrolled = '';
+                renderOverview();
+            }));
 
         let ovResizeTimer = 0;
         window.addEventListener('resize', () => {
