@@ -662,6 +662,21 @@
         }
         .spend-sub { font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
         .tx-table th, .tx-table td { padding: 8px; font-size: 0.9rem; }
+        .fill-plan-btn {
+            margin-right: auto; padding: 8px 14px; border-radius: 999px; border: none; cursor: pointer;
+            font-size: .9rem; font-weight: 600; color: #fff;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 30%, transparent);
+        }
+        .fill-plan-btn:hover { filter: brightness(1.08); }
+        .fill-plan-btn:disabled { opacity: .6; cursor: wait; }
+        .tx-amount-edit {
+            width: 96px; text-align: right; padding: 4px 6px; font-size: .9rem; font-variant-numeric: tabular-nums;
+            border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text);
+        }
+        .tx-amount-edit:hover { border-color: var(--border); }
+        .tx-amount-edit:focus { border-color: var(--accent); background: var(--input-bg); outline: none; }
+        .tx-from-plan { font-size: .72rem; color: var(--muted); border: 1px solid var(--border-soft); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
         .tx-table .row-actions { width: 40px; }
         .csv-row {
             display: flex;
@@ -1207,13 +1222,14 @@
             </button>
             <div class="collapse-body">
             <div class="panel-header">
+                <button type="button" class="fill-plan-btn" id="fill-from-plan" title="Add one transaction per category at its planned amount">⚡ Fill month from plan</button>
                 <div class="month-nav">
                     <button type="button" id="prev-month" aria-label="Previous month">‹</button>
                     <input type="month" id="month-picker">
                     <button type="button" id="next-month" aria-label="Next month">›</button>
                 </div>
             </div>
-            <p class="panel-hint">Log what you actually spend and compare it with each category's plan.</p>
+            <p class="panel-hint">Log what you actually spend and compare it with each category's plan. Tip: <strong>Fill month from plan</strong> adds every category at its planned amount — then just change the few that were different (click an amount in the list to edit it).</p>
 
             <form id="add-tx-form" class="tx-form">
                 <div class="form-group">
@@ -2323,19 +2339,99 @@
 
             // Transactions list
             const nameFor = t => (expenses.find(e => e.docId === t.expenseId) || {}).category || t.category || 'Other';
-            el('tx-table').innerHTML = transactions.length
+            const txBody = el('tx-table');
+            if (txBody.contains(document.activeElement) && document.activeElement.matches('.tx-amount-edit')) {
+                return { actualTotal, overCount };
+            }
+            txBody.innerHTML = transactions.length
                 ? transactions.map(t => `
                     <tr>
                         <td style="white-space:nowrap">${escapeHtml(formatShortDate(t.date || todayKey()))}</td>
                         <td>${escapeHtml(nameFor(t))}</td>
-                        <td>${escapeHtml(t.note || '')}</td>
-                        <td class="num sensitive">${formatCurrencyCents(t.amount)}</td>
+                        <td>${t.fromPlan ? '<span class="tx-from-plan">from plan</span> ' : ''}${escapeHtml(t.note || '')}</td>
+                        <td class="num sensitive"><input type="text" inputmode="decimal" class="tx-amount-edit" data-tx-id="${escapeHtml(t.docId)}" value="${formatNumber(t.amount)}" aria-label="Amount"></td>
                         <td class="row-actions"><button class="delete-btn" data-tx-id="${escapeHtml(t.docId)}" title="Delete">🗑️</button></td>
                     </tr>`).join('')
                 : `<tr class="empty-row"><td colspan="5">${loaded.transactions ? 'No transactions this month yet.' : 'Loading…'}</td></tr>`;
 
             return { actualTotal, overCount };
         }
+
+        /* ----- Edit a logged amount in place ----- */
+        el('tx-table').addEventListener('input', e => {
+            if (e.target.matches('.tx-amount-edit')) formatNumberInput(e.target);
+        });
+        el('tx-table').addEventListener('keydown', e => {
+            if (e.target.matches('.tx-amount-edit') && e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+        });
+        el('tx-table').addEventListener('change', async e => {
+            const input = e.target.closest('.tx-amount-edit');
+            if (!input || !auth.currentUser) return;
+            const tx = transactions.find(t => t.docId === input.dataset.txId);
+            const amount = round2(parseNumber(input.value));
+            if (!tx) return;
+            if (!(amount > 0)) {
+                input.value = formatNumber(tx.amount);
+                showMessage('Please enter a positive amount, or use 🗑️ to remove the transaction.', 'Error');
+                return;
+            }
+            if (amount === tx.amount) return;
+            tx.amount = amount;
+            tx.fromPlan = false;
+            updateCalculations();
+            try {
+                await userCol('transactions').doc(tx.docId).update({ amount, fromPlan: false });
+            } catch (error) {
+                console.error('Error updating transaction:', error);
+                showMessage('Could not save that amount. Please try again.', 'Error');
+            }
+        });
+
+        /* ----- Fill a month from the plan ----- */
+        el('fill-from-plan').addEventListener('click', async () => {
+            if (!auth.currentUser) return;
+            if (!loaded.transactions || !loaded.expenses) { showMessage('Still loading — try again in a moment.', 'One moment'); return; }
+            const month = selectedMonth;
+            const logged = new Set(transactions.map(t => t.expenseId));
+            const todo = expenses.filter(e => monthlyOf(e) > 0 && !logged.has(e.docId));
+            if (!todo.length) {
+                showMessage(expenses.length
+                    ? `Every category already has spending logged for ${monthLabel(month)}.`
+                    : 'Add expenses first, then you can fill a month from them.', 'Nothing to fill');
+                return;
+            }
+            const total = todo.reduce((s, e) => s + round2(monthlyOf(e)), 0);
+            const skipped = expenses.filter(e => monthlyOf(e) > 0).length - todo.length;
+            const ok = await openModal({
+                title: `Fill ${monthLabel(month)} from plan?`,
+                message: `This adds ${todo.length} transaction${todo.length === 1 ? '' : 's'} — one per category at its planned monthly amount (${formatCurrency(total)} in total).` +
+                    (skipped > 0 ? `\n\n${skipped} categor${skipped === 1 ? 'y already has' : 'ies already have'} spending this month and will be skipped.` : '') +
+                    `\n\nYou can change any amount afterwards by clicking it.`,
+                confirmText: 'Fill', cancelText: 'Cancel'
+            });
+            if (!ok) return;
+            const btn = el('fill-from-plan');
+            btn.disabled = true;
+            try {
+                const batch = db.batch();
+                todo.forEach(e => batch.set(userCol('transactions').doc(), {
+                    expenseId: e.docId,
+                    category: e.category,
+                    amount: round2(monthlyOf(e)),
+                    date: `${month}-01`,
+                    month,
+                    note: '',
+                    fromPlan: true,
+                    createdAt: serverTimestamp()
+                }));
+                await batch.commit();
+            } catch (error) {
+                console.error('Error filling from plan:', error);
+                showMessage('Could not add the transactions. Please try again.', 'Error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
 
         /* ================= CSV ================= */
         function csvEscape(value) {
