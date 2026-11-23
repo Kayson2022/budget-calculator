@@ -1767,15 +1767,19 @@
         /* ================= Expenses ================= */
         function subscribeExpenses() {
             listen(userCol('expenses'), snapshot => {
-                expenses = snapshot.docs
-                    .map(doc => ({ docId: doc.id, ...doc.data() }))
-                    .sort((a, b) => (a.order || 0) - (b.order || 0))
-                    .map((expense, index) => ({ ...expense, displayId: index + 1 }));
+                expenses = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                sortExpenses();
                 loaded.expenses = true;
                 renderCategoryOptions();
                 suggestNextColor();
                 updateCalculations();
             }, 'expenses');
+        }
+
+        // Highest monthly amount first; ties keep their saved order
+        function sortExpenses() {
+            expenses.sort((a, b) => (monthlyOf(b) - monthlyOf(a)) || ((a.order || 0) - (b.order || 0)));
+            expenses.forEach((e, i) => { e.displayId = i + 1; });
         }
 
         function suggestNextColor() {
@@ -1824,6 +1828,7 @@
             const expense = expenses.find(e => e.docId === docId);
             if (!expense || !auth.currentUser) return;
             expense[field] = value;
+            if (field === 'amount' || field === 'frequency') sortExpenses();
             updateCalculations();
             if (field === 'category') renderCategoryOptions();
             userCol('expenses').doc(docId).update({ [field]: value }).catch(error => {
@@ -1950,10 +1955,6 @@
                         </td>
                         <td class="num">
                             <div class="annual-td">${formatCurrency(monthly * 12)}</div>
-                            <div class="row-actions move-btns">
-                                <button data-action="up" title="Move up" aria-label="Move up" ${index === 0 ? 'disabled' : ''}>▲</button>
-                                <button data-action="down" title="Move down" aria-label="Move down" ${index === expenses.length - 1 ? 'disabled' : ''}>▼</button>
-                            </div>
                         </td>
                         <td class="row-actions">
                             <button data-action="delete" class="delete-btn" title="Delete">🗑️</button>
