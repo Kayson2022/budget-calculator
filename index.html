@@ -346,6 +346,21 @@
 
         /* ---------- Tables ---------- */
         .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+        /* Grid children may shrink, so wide tables scroll inside their card instead of stretching the page */
+        .main-content > *, .tracker-grid > * { min-width: 0; }
+        @media (max-width: 600px) {
+            .expenses-section table th, .expenses-section table td { padding: 6px; }
+            .expenses-section table th { white-space: normal; }
+            /* Annual is also shown in the totals below, so drop the column on phones */
+            .expenses-section table th:nth-child(4), .expenses-section table td:nth-child(4) { display: none; }
+            .expenses-section .id-cell { width: 26px; }
+            #expenses-table .name-input { min-width: 0; font-size: .95rem; }
+            #expenses-table .amount-input { width: 86px; }
+            #expenses-table .amount-slider { width: 86px; }
+            #expenses-table .freq-select { width: 86px; }
+            #expenses-table .row-meta select { max-width: 74px; }
+            #expenses-table .num { font-size: .85rem; }
+        }
         table { width: 100%; border-collapse: collapse; }
         th, td {
             border: 1px solid var(--border);
