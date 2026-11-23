@@ -328,6 +328,8 @@
         .negative { color: var(--negative); }
 
         /* ---------- Main grid ---------- */
+        .exp-panel { background: var(--surface); }
+        .exp-panel > .collapse-toggle h2 { font-size: 1.5rem; margin-bottom: 0; }
         .main-content {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1114,6 +1116,15 @@
             </div>
         </div>
 
+        <section class="panel collapsible exp-panel" data-panel="expenses">
+            <button type="button" class="collapse-toggle" aria-expanded="false">
+                <span class="collapse-title">
+                    <h2>Expenses &amp; Breakdown</h2>
+                    <span class="collapse-mini sensitive" id="expenses-mini"></span>
+                </span>
+                <span class="chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="collapse-body">
         <div class="main-content">
             <div class="expenses-section">
                 <h2>Expenses</h2>
@@ -1210,6 +1221,8 @@
                 </div>
             </div>
         </div>
+            </div>
+        </section>
 
         <!-- Spending tracker -->
         <section class="panel collapsible" data-panel="tracker">
@@ -2005,6 +2018,9 @@
 
             el('total-monthly').textContent = formatCurrency(totalMonthly);
             el('total-annual').textContent = formatCurrency(totalMonthly * 12);
+            el('expenses-mini').textContent = expenses.length
+                ? `${expenses.length} expense${expenses.length === 1 ? '' : 's'} · ${formatCurrency(totalMonthly)}/month · ${formatCurrency(Math.abs(remainingMonthly))} ${remainingMonthly >= 0 ? 'left' : 'over'}`
+                : 'No expenses yet';
 
             const setSigned = (id, value, base) => {
                 const node = el(id);
@@ -3180,6 +3196,15 @@
                 if (t && t.dataset.month !== selectedMonth) setSelectedMonth(t.dataset.month);
             });
         }
+
+        // Charts drawn while hidden need a resize once the panel opens
+        document.querySelectorAll('[data-panel="expenses"] .collapse-toggle').forEach(btn =>
+            btn.addEventListener('click', () => {
+                requestAnimationFrame(() => {
+                    if (chart) chart.resize();
+                    expensesTbody.querySelectorAll('textarea.name-input').forEach(autoSizeName);
+                });
+            }));
 
         document.querySelectorAll('[data-panel="overview"] .collapse-toggle').forEach(btn =>
             btn.addEventListener('click', () => {
