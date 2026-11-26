@@ -372,6 +372,16 @@
         .num { text-align: right; white-space: nowrap; }
         .id-cell { width: 40px; text-align: center; font-weight: bold; color: var(--muted); }
         .empty-row td { text-align: center; color: var(--muted); padding: 20px; }
+        .zero-toggle-row td { padding: 0; }
+        .zero-toggle {
+            width: 100%; display: flex; align-items: center; gap: 8px;
+            padding: 10px 12px; background: none; border: none; cursor: pointer;
+            color: var(--muted); font: inherit; font-size: 0.9rem; text-align: left;
+        }
+        .zero-toggle:hover { color: inherit; background: var(--border-soft); }
+        .zero-toggle .zero-arrow { display: inline-block; transition: transform .2s; }
+        .zero-toggle[aria-expanded="true"] .zero-arrow { transform: rotate(90deg); }
+        tr.zero-row.zero-hidden { display: none; }
 
         .name-input {
             display: block;
@@ -1897,6 +1907,7 @@
 
         // Event delegation for the expenses table
         const expensesTbody = el('expenses-table');
+        let showZeroExpenses = storeGet('showZeroExpenses') === '1';
         function autoSizeName(textarea) {
             textarea.style.height = 'auto';
             if (textarea.scrollHeight > 0) textarea.style.height = `${textarea.scrollHeight + 2}px`;
@@ -1943,6 +1954,12 @@
         expensesTbody.addEventListener('click', async e => {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
+            if (btn.dataset.action === 'toggle-zero') {
+                showZeroExpenses = !showZeroExpenses;
+                storeSet('showZeroExpenses', showZeroExpenses ? '1' : '0');
+                renderExpensesTable();
+                return;
+            }
             const row = btn.closest('tr');
             const index = expenses.findIndex(x => x.docId === row.dataset.id);
             if (index < 0) return;
@@ -1974,11 +1991,17 @@
                 return;
             }
 
-            expensesTbody.innerHTML = expenses.map((expense, index) => {
+            // $0 expenses go into a collapsible group at the bottom.
+            // The row being edited stays put so it doesn't vanish mid-typing.
+            const isZero = x => !(Number(x.amount) > 0) && !(restore && restore.id === x.docId);
+            const nonZero = expenses.filter(x => !isZero(x));
+            const zero = expenses.filter(isZero);
+
+            const rowHtml = (expense, extraClass = '') => {
                 const monthly = monthlyOf(expense);
                 const color = /^#[0-9a-f]{6}$/i.test(expense.color || '') ? expense.color : '#a3a3a3';
                 return `
-                    <tr data-id="${escapeHtml(expense.docId)}">
+                    <tr data-id="${escapeHtml(expense.docId)}"${extraClass ? ` class="${extraClass}"` : ''}>
                         <td class="id-cell">${expense.displayId}</td>
                         <td>
                             <textarea class="name-input" data-field="category" rows="1" maxlength="60" aria-label="Category name">${escapeHtml(expense.category)}</textarea>
@@ -2004,9 +2027,22 @@
                             <button data-action="delete" class="delete-btn" title="Delete">🗑️</button>
                         </td>
                     </tr>`;
-            }).join('');
+            };
 
-            expensesTbody.querySelectorAll('textarea.name-input').forEach(autoSizeName);
+            let html = nonZero.map(x => rowHtml(x)).join('');
+            if (zero.length) {
+                html += `
+                    <tr class="zero-toggle-row"><td colspan="5">
+                        <button type="button" class="zero-toggle" data-action="toggle-zero" aria-expanded="${showZeroExpenses}">
+                            <span class="zero-arrow" aria-hidden="true">▸</span>
+                            ${showZeroExpenses ? 'Hide' : 'Show'} ${zero.length} expense${zero.length === 1 ? '' : 's'} at $0
+                        </button>
+                    </td></tr>`;
+                html += zero.map(x => rowHtml(x, showZeroExpenses ? 'zero-row' : 'zero-row zero-hidden')).join('');
+            }
+            expensesTbody.innerHTML = html;
+
+            expensesTbody.querySelectorAll('tr:not(.zero-hidden) textarea.name-input').forEach(autoSizeName);
 
             if (restore) {
                 const row = [...expensesTbody.querySelectorAll('tr')].find(r => r.dataset.id === restore.id);
