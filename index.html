@@ -1951,6 +1951,18 @@
             }
             updateExpenseField(docId, field, value);
         });
+        // A $0 row is kept in place while it's being edited; once focus leaves
+        // that row, re-render so it drops back into the hidden $0 group.
+        expensesTbody.addEventListener('focusout', e => {
+            const id = e.target.closest('tr[data-id]')?.dataset.id;
+            if (!id) return;
+            setTimeout(() => {
+                const row = [...expensesTbody.querySelectorAll('tr[data-id]')].find(r => r.dataset.id === id);
+                if (!row || row.classList.contains('zero-row') || row.contains(document.activeElement)) return;
+                const expense = expenses.find(x => x.docId === id);
+                if (expense && !(Number(expense.amount) > 0)) renderExpensesTable();
+            }, 0);
+        });
         expensesTbody.addEventListener('click', async e => {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
